@@ -172,7 +172,7 @@ Training curves and logs are also written under the corresponding seed directory
 
 The manuscript reports three independent runs using seeds **42, 43, and 44**, with:
 
-- Epochs: **160**
+- Epochs: **140**
 - Initial learning rate: **1e-3**
 - SGD momentum: **0.9**
 - Weight decay: **1e-4**
