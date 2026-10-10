@@ -99,7 +99,19 @@ The experiments use **MiniImageNet** as the host-image dataset:
 - Test: **12,000** images
 - Total: **60,000** images
 
+Dataset link: https://aistudio.baidu.com/datasetdetail/167270
+
+### Cross-dataset evaluation
+
+The cross-dataset evaluation uses the **COCO val2017** dataset.
+
+Dataset link: https://aistudio.baidu.com/datasetdetail/103635
+
 ### Copyright images
+
+The manuscript uses **200 university-logo images** collected from the official websites of 200 different universities.
+
+Dataset link: https://drive.google.com/drive/folders/1lXW2yw7SLmIYmJjYYshk6qLQ9xSc6kAV
 
 The manuscript uses **200 university-logo images** collected from publicly accessible Internet sources as copyright images.
 
