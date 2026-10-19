@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""Evaluate ConZWNet-V2 robustness under 13 attack categories using BCR."""
+"""Evaluate ConZWNet-V2 robustness under 10 attack categories using BCR."""
 
 import os
 import sys
@@ -122,7 +122,7 @@ def main():
 
     print(
         f"\n{'=' * 85}\n"
-        f"ConZWNet-V2 Robustness Evaluation (13 Attack Categories) "
+        f"ConZWNet-V2 Robustness Evaluation (10 Attack Categories) "
         f"| Binarization: {binarize_mode}\n"
         f"{'=' * 85}"
     )
