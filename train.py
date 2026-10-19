@@ -48,7 +48,7 @@ except ImportError as exc:
     sys.exit(1)
 
 
-# Run the script independently with seeds 42, 43, and 44.
+# Run the script independently with seeds 41 through 50.
 RUN_SEED = 42
 
 # Training configuration.
