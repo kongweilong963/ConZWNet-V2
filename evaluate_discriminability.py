@@ -86,6 +86,7 @@ def run_10_anchor_census(model, loader, ds_fixed, mode, scrambler, device, binar
     return np.mean(all_nc_results)
 
 def main():
+    # Set SEED to each value from 41 to 50 to reproduce the 10 independent runs.
     SEED = 42
     random.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
 
