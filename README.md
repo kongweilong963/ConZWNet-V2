@@ -15,16 +15,15 @@ Manuscript under review. The final publication link and BibTeX entry will be add
 
 ### Abstract
 
-Zero-watermarking protects image copyright without modifying the host image. ConZWNet-V2 addresses a structural limitation of existing deep learning-based methods: contrastive learning is often applied only to intermediate backbone features, while downstream feature fusion and binarization remain outside the contrastive objective. ConZWNet-V2 instead applies contrastive learning directly to the final soft-binarized zero-watermark representation, jointly optimizing feature extraction, feature fusion, and differentiable binarization. The framework consists of ResNet-50 feature extraction, iAFF feature fusion, Sigmoid-based differentiable binarization, and MoCo-V2-based contrastive learning.
+Zero-watermarking protects image copyright without modifying the host image. ConZWNet-V2 addresses a structural limitation of existing deep learning-based zero-watermarking methods: the training objective is commonly applied to intermediate representations, while downstream feature fusion and binarization remain outside the optimization target. ConZWNet-V2 instead applies contrastive learning directly to the final soft-binarized zero-watermark representation, jointly optimizing feature extraction, feature fusion, and differentiable binarization. The framework consists of ResNet-50 feature extraction, iAFF feature fusion, Sigmoid-based differentiable binarization, and MoCo-V2-based contrastive learning.
 
 ---
 
 ## 1. Introduction
 
-ConZWNet-V2 is designed around a simple observation: the representation optimized during training should match the representation that ultimately determines the deployed zero-watermark.
+ConZWNet-V2 is designed around a simple observation: the representation optimized during training should be closely aligned with the representation that ultimately determines the deployed zero-watermark.
 
 The framework therefore applies the InfoNCE objective directly to the **final L2-normalized soft-binarized watermark representation**, rather than to an isolated intermediate backbone feature.
-
 
 <p align="center">
   <img src="figures/overview.png" width="95%" alt="ConZWNet-V2 framework overview">
@@ -37,8 +36,8 @@ The framework therefore applies the InfoNCE objective directly to the **final L2
 The complete pipeline contains four stages:
 
 1. **ResNet-50 feature extraction**
-   - Host and copyright images are processed by two ResNet-50 branches.
-   - Stage-4 feature maps are projected from 2048 channels to 768 channels.
+   - Host and copyright images are processed by the ResNet-50-based feature extractor.
+   - Stage-4 feature maps are projected from 2048 channels to 768 channels through a 1×1 convolution followed by batch normalization.
 
 2. **iAFF feature fusion**
    - Host and copyright features are fused using Iterative Attentional Feature Fusion (iAFF).
@@ -46,20 +45,20 @@ The complete pipeline contains four stages:
 
 3. **Sigmoid-based differentiable binarization**
    - Global average pooling and a two-layer MLP produce a 1024-dimensional logit vector.
-   - Sigmoid produces a continuous representation `v_soft`.
-   - The L2-normalized representation is used for contrastive learning.
+   - Sigmoid produces the continuous pre-normalization representation `v_soft`.
+   - The L2-normalized soft-binarized representation is used for contrastive learning.
    - During zero-watermark generation, `v_soft` is thresholded at `0.5` to obtain 1024 binary bits.
 
 4. **MoCo-V2 contrastive learning**
-   - The query encoder and momentum-updated key encoder form positive pairs.
-   - A dynamic queue stores negative key representations.
+   - Two independently augmented views of the same host image, combined with the same copyright image, form a positive pair.
+   - A momentum-updated key encoder and dynamic queue provide a large and temporally consistent negative sample pool.
    - InfoNCE is applied directly to the final soft-binarized representation.
 
-### Main contributions
+### Main contributions and findings
 
-- **Pipeline-wide contrastive optimization:** contrastive supervision propagates through feature extraction, fusion, and differentiable binarization.
-- **Differentiable binarization:** a Sigmoid-based bridge enables continuous optimization while retaining fixed-threshold discrete watermark generation.
-- **Robustness and discriminability:** experiments show a minimum mean BCR above 0.96 while host-image and copyright-image NC remain below 0.40.
+- **Pipeline-wide contrastive optimization:** the contrastive objective is applied directly to the final soft-binarized zero-watermark representation, allowing supervision to propagate through feature extraction, fusion, and differentiable binarization.
+- **Differentiable binarization bridge:** a Sigmoid-based bridge enables gradient propagation through the binarization stage while retaining fixed-threshold discrete watermark generation during inference.
+- **Empirical findings from ablation studies:** Sigmoid achieves higher robustness than the evaluated Tanh and STE alternatives, while ResNet-50 provides the most favorable overall robustness–discriminability balance among the evaluated backbones under the present setting.
 
 > The current implementation uses standard **MoCo-V2 / InfoNCE**. The deprecated B-NCE implementation is not included.
 
@@ -67,7 +66,9 @@ The complete pipeline contains four stages:
 
 ## 2. Requirements
 
-Key dependencies are listed in `requirements.txt`:
+Key dependencies are listed in `requirements.txt`.
+
+Typical dependencies include:
 
 - PyTorch
 - torchvision
@@ -86,34 +87,53 @@ pip install -r requirements.txt
 
 A CUDA-capable GPU is strongly recommended for training.
 
+For exact environment reproduction, an exported Conda environment snapshot can also be provided as:
+
+```text
+environment_conda.txt
+```
+
+It can be recreated with:
+
+```bash
+conda create --name conzwnet_v2 --file environment_conda.txt
+```
+
+The experiments reported in the manuscript were conducted on a modified NVIDIA GeForce RTX 4090 GPU with 48 GB VRAM.
+
 ---
 
 ## 3. Dataset
 
 ### Host images
 
-The experiments use **MiniImageNet** as the host-image dataset:
+The primary experiments use **MiniImageNet** as the host-image dataset:
 
 - Training: **38,400** images
 - Validation: **9,600** images
 - Test: **12,000** images
 - Total: **60,000** images
 
-Dataset link: https://aistudio.baidu.com/datasetdetail/167270
+Dataset link:  
+https://aistudio.baidu.com/datasetdetail/167270
+
+During training, the first **1,024 validation images** are used for epoch-level monitoring. Final robustness and discriminability evaluations use the independent MiniImageNet test set.
 
 ### Cross-dataset evaluation
 
-The cross-dataset evaluation uses the **COCO val2017** dataset.
+Cross-dataset generalization is evaluated on the **COCO val2017** dataset without additional training or fine-tuning.
 
-Dataset link: https://aistudio.baidu.com/datasetdetail/103635
+Dataset link:  
+https://aistudio.baidu.com/datasetdetail/103635
 
 ### Copyright images
 
-The manuscript uses **200 university-logo images** collected from the official websites of 200 different universities.
+The manuscript uses **200 university-logo images** collected from publicly accessible Internet sources, with one logo retained for each distinct university.
 
-Dataset link: https://drive.google.com/drive/folders/1lXW2yw7SLmIYmJjYYshk6qLQ9xSc6kAV
+All 200 copyright images are used during both training and evaluation.
 
-The manuscript uses **200 university-logo images** collected from publicly accessible Internet sources as copyright images.
+Dataset link:  
+https://drive.google.com/drive/folders/1lXW2yw7SLmIYmJjYYshk6qLQ9xSc6kAV
 
 ### Expected directory structure
 
@@ -127,6 +147,11 @@ Conzwnet-v2/
 │   ├── image_001.png
 │   ├── image_002.png
 │   └── ...
+├── results/
+│   ├── seed_41/
+│   ├── seed_42/
+│   ├── ...
+│   └── seed_50/
 ├── train.py
 ├── evaluate_robustness.py
 ├── evaluate_discriminability.py
@@ -136,7 +161,7 @@ Conzwnet-v2/
 
 The host-image folders are scanned recursively, so class subdirectories are supported.
 
-The training roots can also be overridden with environment variables:
+The dataset roots can also be overridden through environment variables:
 
 ```bash
 export MINI_IMAGENET_ROOT=/path/to/Mini-ImageNet-Dataset
@@ -154,7 +179,7 @@ Run:
 python train.py
 ```
 
-### Current public-script defaults
+### Training configuration
 
 | Hyperparameter | Value |
 |---|---:|
@@ -170,9 +195,12 @@ python train.py
 | MoCo momentum | 0.999 |
 | Temperature | 0.07 |
 | Arnold iterations | 10 |
-| Default seed | 42 |
+| AMP | Enabled |
+| Default public-script seed | 42 |
 
-The default checkpoint is saved to:
+The learning rate remains fixed throughout training; no additional learning-rate scheduler is used.
+
+The default public script saves the checkpoint to:
 
 ```text
 results/seed_42/weights.pth
@@ -180,20 +208,28 @@ results/seed_42/weights.pth
 
 Training curves and logs are also written under the corresponding seed directory.
 
-### Manuscript training configuration
+### Manuscript repeated-run protocol
 
-The manuscript reports three independent runs using seeds **42, 43, and 44**, with:
+The manuscript reports **ten independently trained models using random seeds 41–50**.
 
-- Epochs: **140**
-- Initial learning rate: **1e-4**
-- SGD momentum: **0.9**
-- Weight decay: **1e-4**
-- MoCo queue size: **4096**
-- MoCo momentum: **0.999**
-- Temperature: **0.07**
-- AMP: enabled
+To reproduce the repeated-run protocol, set the training seed independently to:
 
-To reproduce the manuscript configuration exactly, change the corresponding values in `train.py` and run the three seeds independently.
+```text
+41, 42, 43, 44, 45, 46, 47, 48, 49, 50
+```
+
+and run `train.py` separately for each seed.
+
+Each run should save its checkpoint under the corresponding directory:
+
+```text
+results/seed_41/weights.pth
+results/seed_42/weights.pth
+...
+results/seed_50/weights.pth
+```
+
+Reported BCR and NC statistics are calculated across these ten independently trained models using the mean and sample standard deviation.
 
 ---
 
@@ -207,13 +243,33 @@ Robustness is evaluated using **Bit Correct Rate (BCR)**:
 python evaluate_robustness.py
 ```
 
-The evaluator loads:
+For two discrete zero-watermarks \(Z\) and \(Z'\), BCR measures their bit-level agreement. Higher BCR indicates stronger robustness.
 
-```text
-results/seed_42/weights.pth
-```
+The manuscript's main robustness evaluation uses the **12,000 MiniImageNet test images**.
 
-The default discrete zero-watermark is obtained using a fixed threshold of `0.5`.
+The deployed zero-watermark is obtained by applying a fixed threshold of `0.5` to the pre-normalization Sigmoid output `v_soft`, followed by Arnold scrambling.
+
+The main evaluation contains ten attack categories:
+
+- Rotation
+- Random Crop
+- Corner Crop
+- Salt & Pepper Noise
+- Gaussian Noise
+- Median Filtering
+- Gaussian Filtering
+- JPEG Compression
+- Mean Filtering
+- Resize
+
+Four additional unseen attack types are evaluated separately:
+
+- Speckle Noise
+- Sharpening
+- Histogram Equalization
+- Wiener Filtering
+
+The public evaluation script evaluates one trained checkpoint at a time. To reproduce the manuscript statistics, evaluate the checkpoints for seeds **41–50** independently and aggregate the per-model results.
 
 ### 5.2 Discriminability
 
@@ -223,85 +279,154 @@ Discriminability is evaluated using **Normalized Correlation (NC)**:
 python evaluate_discriminability.py
 ```
 
+Lower NC indicates stronger discriminability.
+
 Two settings are evaluated:
 
-- **Host-image discriminability:** copyright image fixed, host image varied.
-- **Copyright-image discriminability:** host image fixed, copyright image varied.
+- **Host-image discriminability:** a copyright image is fixed while host images are varied.
+- **Copyright-image discriminability:** a host image is fixed while copyright images are varied.
 
-The evaluation uses 10 anchors selected with evaluation seed 42.
+For host-image discriminability, **10 copyright-logo anchors** are randomly selected from the copyright-image pool.
+
+For copyright-image discriminability, **10 host-image anchors** are randomly selected from the MiniImageNet test set.
+
+For each anchor, pairwise off-diagonal NC values are aggregated into one anchor-level summary. The final discriminability score of a trained model is obtained by averaging the summaries across the ten anchors.
+
+The public script evaluates one trained checkpoint at a time. It should be run independently for seeds **41–50**, after which the ten per-model NC scores are aggregated to obtain the manuscript mean, sample standard deviation, and 95% confidence interval.
 
 ---
 
 ## 6. Results
 
-Results below are taken from the current manuscript and are reported as **mean ± sample standard deviation across three independent runs using seeds 42, 43, and 44**.
+Unless otherwise specified, ConZWNet-V2 results are reported as the **mean ± sample standard deviation across ten independently trained models using seeds 41–50**.
 
 ### 6.1 Robustness
 
 Higher BCR is better.
 
-| Attack Type | BCR (mean ± SD) |
+Representative robustness results are shown below.
+
+| Attack Condition | BCR (mean ± SD) |
 |---|---:|
 | No Attack | **1.0000 ± 0.0000** |
-| Rotation (180°) | **0.9861 ± 0.0033** |
-| Random Crop (75%) | **0.9663 ± 0.0099** |
-| Corner Crop (Left-Bottom, 12.5%) | **0.9995 ± 0.0003** |
-| Salt & Pepper Noise (0.10) | **0.9926 ± 0.0033** |
-| Gaussian Noise (0.10) | **0.9806 ± 0.0080** |
-| Median Filter (11×11) | **0.9941 ± 0.0027** |
-| Gaussian Filter (11×11) | **0.9942 ± 0.0037** |
-| Mean Filter (11×11) | **0.9909 ± 0.0061** |
-| JPEG Compression (Q=20) | **0.9964 ± 0.0021** |
-| Resize Attack (0.50) | **0.9963 ± 0.0022** |
+| Rotation (180°) | **0.9862 ± 0.0051** |
+| Random Crop (0.75) | **0.9673 ± 0.0126** |
+| Corner Crop (LB, 12.5%) | **0.9995 ± 0.0004** |
+| Salt & Pepper Noise (0.10) | **0.9909 ± 0.0054** |
+| Gaussian Noise (0.10) | **0.9775 ± 0.0114** |
+| Median Filter (11×11) | **0.9945 ± 0.0025** |
+| Gaussian Filter (11×11) | **0.9946 ± 0.0028** |
+| JPEG Compression (Q=20) | **0.9964 ± 0.0017** |
+| Mean Filter (11×11) | **0.9916 ± 0.0043** |
+| Resize Attack (0.50) | **0.9962 ± 0.0019** |
 
-The manuscript reports an **overall BCR of 0.9918 ± 0.0026**. The most challenging evaluated condition is 75% random cropping, for which ConZWNet-V2 still achieves **0.9663 ± 0.0099** BCR.
+Across the full robustness evaluation, ConZWNet-V2 achieves an **overall mean BCR of 0.9917 ± 0.0033**.
 
-### 6.2 Discriminability
+The most challenging reported condition is Random Crop (0.75), under which ConZWNet-V2 maintains a BCR of **0.9673 ± 0.0126**.
+
+For the ten representative attack conditions used in the cross-method comparison, ConZWNet-V2 achieves a **Mean BCR of 0.9895 ± 0.0043**.
+
+### 6.2 Robustness to unseen attacks
+
+| Unseen Attack | BCR (mean ± SD) |
+|---|---:|
+| Speckle Noise (σ = 0.05) | **0.9984 ± 0.0006** |
+| Sharpening (9-point stencil) | **0.9864 ± 0.0050** |
+| Histogram Equalization | **0.9763 ± 0.0111** |
+| Wiener Filter (5×5) | **0.9971 ± 0.0014** |
+
+These results provide additional evidence that the learned zero-watermark representation retains high robustness under attack types not included in the main training perturbation set.
+
+### 6.3 Discriminability
 
 Lower NC is better.
 
-| Metric | NC (mean ± SD) |
+| Metric | NC (mean ± SD) | 95% CI |
+|---|---:|---:|
+| Host-image Discriminability | **0.3357 ± 0.0215** | [0.3203, 0.3511] |
+| Copyright-image Discriminability | **0.3584 ± 0.0269** | [0.3392, 0.3776] |
+
+The low NC values indicate that the generated zero-watermarks remain distinguishable when either the host image or the copyright image changes.
+
+### 6.4 Overall robustness–discriminability balance
+
+The manuscript uses a balanced score that assigns equal weight to robustness and discriminability:
+
+```text
+Balanced Score = 0.5 × [Mean BCR + (1 - (Host NC + Copyright NC) / 2)]
+```
+
+ConZWNet-V2 achieves:
+
+| Metric | ConZWNet-V2 |
 |---|---:|
-| Host-image Discriminability | **0.3316 ± 0.0201** |
-| Copyright-image Discriminability | **0.3431 ± 0.0246** |
+| Mean BCR | **0.9895** |
+| Host NC | **0.3357** |
+| Copyright NC | **0.3584** |
+| Balanced Score | **0.8212** |
 
-Both values remain below 0.40, indicating that the generated zero-watermarks remain well separated when either the host image or the copyright image changes.
+Among the seven evaluated methods, ConZWNet-V2 achieves the highest balanced score under the unified evaluation protocol.
 
-### 6.3 Main ablation results
+### 6.5 Main ablation results
+
+All ablation configurations are independently trained using **ten random seeds (41–50)**. BCR and NC values are reported as mean ± sample standard deviation.
 
 #### Backbone
 
-| Metric | ResNet-50 | MambaOut-S | ConvNeXt-S |
+| Metric | ResNet-50 | MambaOut-Small | ConvNeXt-Small |
 |---|---:|---:|---:|
-| Minimum BCR ↑ | **0.9663 ± 0.0099** | 0.8855 ± 0.0022 | 0.8934 ± 0.0112 |
-| Host-image NC ↓ | 0.3316 ± 0.0201 | 0.2672 ± 0.0250 | **0.2310 ± 0.0125** |
-| Copyright-image NC ↓ | **0.3431 ± 0.0246** | 0.5274 ± 0.0306 | 0.5545 ± 0.0103 |
+| Mean BCR ↑ | **0.9895 ± 0.0043** | 0.8855 ± 0.0022 | 0.8934 ± 0.0112 |
+| Host-image NC ↓ | 0.3357 ± 0.0215 | 0.2672 ± 0.0250 | **0.2310 ± 0.0125** |
+| Copyright-image NC ↓ | **0.3584 ± 0.0269** | 0.5274 ± 0.0306 | 0.5545 ± 0.0103 |
+| Balanced Score ↑ | **0.8212** | 0.7441 | 0.7503 |
+
+Although ConvNeXt-Small and MambaOut-Small achieve lower host-image NC, ResNet-50 provides substantially higher robustness and lower copyright-image NC, resulting in the highest balanced score among the evaluated backbones.
 
 #### Contrastive learning framework
 
 | Metric | MoCo-V2 | SimCLR |
 |---|---:|---:|
-| Minimum BCR ↑ | **0.9663 ± 0.0099** | 0.9572 ± 0.0050 |
-| Host-image NC ↓ | **0.3316 ± 0.0201** | 0.4179 ± 0.0201 |
-| Copyright-image NC ↓ | **0.3431 ± 0.0246** | 0.4958 ± 0.0058 |
+| Mean BCR ↑ | **0.9895 ± 0.0043** | 0.9672 ± 0.0050 |
+| Host-image NC ↓ | **0.3357 ± 0.0215** | 0.4179 ± 0.0201 |
+| Copyright-image NC ↓ | **0.3584 ± 0.0269** | 0.4958 ± 0.0058 |
+| Balanced Score ↑ | **0.8212** | 0.7552 |
+
+MoCo-V2 provides a more favorable robustness–discriminability trade-off than SimCLR under the matched experimental setting.
 
 #### Feature fusion
 
 | Metric | iAFF | Simple Concat |
 |---|---:|---:|
-| Minimum BCR ↑ | **0.9663 ± 0.0099** | 0.9290 ± 0.0043 |
-| Host-image NC ↓ | **0.3316 ± 0.0201** | 0.6205 ± 0.0101 |
-| Copyright-image NC ↓ | **0.3431 ± 0.0246** | 0.6778 ± 0.0050 |
+| Mean BCR ↑ | **0.9895 ± 0.0043** | 0.9290 ± 0.0043 |
+| Host-image NC ↓ | **0.3357 ± 0.0215** | 0.6205 ± 0.0101 |
+| Copyright-image NC ↓ | **0.3584 ± 0.0269** | 0.6778 ± 0.0050 |
+| Balanced Score ↑ | **0.8212** | 0.6399 |
+
+The iAFF module achieves both higher robustness and stronger discriminability than the simple concatenation baseline.
 
 #### Differentiable binarization
 
 | Metric | Sigmoid | Tanh | STE |
 |---|---:|---:|---:|
-| Minimum BCR ↑ | **0.9663 ± 0.0099** | 0.8111 ± 0.0056 | 0.8417 ± 0.0090 |
-| Host-image NC ↓ | 0.3316 ± 0.0201 | **0.2821 ± 0.0038** | 0.3050 ± 0.0137 |
-| Copyright-image NC ↓ | 0.3431 ± 0.0246 | **0.2451 ± 0.0148** | 0.3394 ± 0.0120 |
+| Mean BCR ↑ | **0.9895 ± 0.0043** | 0.8111 ± 0.0056 | 0.8417 ± 0.0090 |
+| Host-image NC ↓ | 0.3357 ± 0.0215 | **0.2821 ± 0.0038** | 0.3050 ± 0.0137 |
+| Copyright-image NC ↓ | 0.3584 ± 0.0269 | **0.2451 ± 0.0148** | 0.3394 ± 0.0120 |
+| Balanced Score ↑ | **0.8212** | 0.7738 | 0.7598 |
 
-Although Tanh and STE can produce lower NC in some cases, Sigmoid provides the strongest robustness and the best overall balance between robustness and discriminability in the evaluated setting.
+Tanh and STE can achieve lower NC values, but their substantially lower Mean BCR reduces their overall performance. Sigmoid therefore provides the most favorable robustness–discriminability balance among the evaluated binarization schemes.
+
+### 6.6 Cross-dataset generalization
+
+The ten models trained on MiniImageNet using seeds **41–50** are directly evaluated on **COCO val2017 without fine-tuning**.
+
+| Metric | MiniImageNet | COCO |
+|---|---:|---:|
+| Overall Mean BCR | 0.9917 ± 0.0033 | **0.9919 ± 0.0025** |
+| Minimum BCR | 0.9673 ± 0.0126 | 0.9665 ± 0.0104 |
+| Host NC | 0.3357 ± 0.0215 | 0.4043 ± 0.0305 |
+| Copyright NC | 0.3584 ± 0.0269 | 0.4163 ± 0.0633 |
+
+The results show comparable robustness between MiniImageNet and COCO, while the increased NC values indicate some reduction in discriminability under cross-dataset transfer.
 
 ---
 
@@ -312,9 +437,12 @@ Conzwnet-v2/
 ├── README.md
 ├── LICENSE
 ├── requirements.txt
+├── environment_conda.txt
 ├── train.py
 ├── evaluate_robustness.py
 ├── evaluate_discriminability.py
+├── figures/
+│   └── overview.png
 ├── modules/
 │   ├── __init__.py
 │   ├── ablation_core.py
@@ -332,12 +460,16 @@ Conzwnet-v2/
 
 ## 8. Reproducibility Notes
 
-- MiniImageNet, the 200 copyright images, and trained checkpoints are not included in this repository.
-- `train.py` currently defaults to seed 42. Change the seed to reproduce seeds 43 and 44.
-- The current code uses `pretrained=False` for ResNet-50.
-- Evaluation scripts load the query encoder from the MoCo checkpoint and ignore queue/key-encoder entries.
-- The current copyright-image training loader uses `batch_size=96` with `drop_last=True`; therefore, enough copyright images are required to form at least one full copyright batch.
-- The public script defaults and the exact manuscript training configuration are explicitly distinguished above.
+- `train.py` currently defaults to seed **42**. Set the training seed independently to each integer from **41 to 50** to reproduce the ten independent runs reported in the manuscript.
+- Each robustness or discriminability evaluation script evaluates **one trained checkpoint at a time**. Run the evaluator separately on the checkpoints corresponding to seeds 41–50 and aggregate the resulting per-model scores.
+- The current implementation uses `pretrained=False` for the ResNet-50 backbone.
+- The evaluation scripts load the query encoder from the MoCo checkpoint and ignore queue and key-encoder entries.
+- The deployed Sigmoid zero-watermark uses a fixed threshold of `0.5`.
+- The zero-watermark dimension is 1024 bits, corresponding to a 32×32 binary representation for Arnold scrambling.
+- All 200 copyright-logo images are used during training and evaluation.
+- During training, the first 1,024 MiniImageNet validation images are used for epoch-level monitoring.
+- The copyright-image training loader uses `batch_size=96` with `drop_last=True`; therefore, the copyright-image directory must contain enough images to form at least one complete batch.
+- The complete Conda environment snapshot in `environment_conda.txt` records the environment used on the development server; `requirements.txt` contains the main project-level Python dependencies.
 
 ---
 
